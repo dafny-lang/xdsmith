@@ -1,0 +1,3 @@
+#!/bin/bash
+cp reduction-candidate tmp.dfy
+! racket ../differ.rkt ./tmp.dfy
