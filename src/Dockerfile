@@ -59,7 +59,6 @@ RUN racket apply-patch.rkt
 
 RUN cd dafny \
   && make exe \
-  && make runtime \
   && make z3-ubuntu
 
 RUN mkdir work-dir
