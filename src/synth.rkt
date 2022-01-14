@@ -31,19 +31,18 @@
 
 (define (synth:core v f)
   (clear-state!)
-  (define count 0)
-  (define (interp e)
-    (destruct e
-      [(TheVar)
-       (set! count (add1 count))
-       v]
-      [(IntLiteral v) v]
-      [(Plus l r) (+ (interp l) (interp r))]
-      [(Minus l r) (- (interp l) (interp r))]
-      [(Equal l r) (= (interp l) (interp r))]
-      [(LessThan l r) (< (interp l) (interp r))]
-      [(And l r) (&& (interp l) (interp r))]
-      [(Or l r) (|| (interp l) (interp r))]))
+  (define (interp e replacement)
+    (define (interp e)
+      (destruct e
+        [(TheVar) replacement]
+        [(IntLiteral v) v]
+        [(Plus l r) (+ (interp l) (interp r))]
+        [(Minus l r) (- (interp l) (interp r))]
+        [(Equal l r) (= (interp l) (interp r))]
+        [(LessThan l r) (< (interp l) (interp r))]
+        [(And l r) (&& (interp l) (interp r))]
+        [(Or l r) (|| (interp l) (interp r))]))
+    (interp e))
   (define (?expr depth random-depth)
     (define (?expr depth)
       (define (make-choice c)
@@ -67,9 +66,10 @@
     (?expr depth))
 
   (define sketch (?expr 4 (random 4)))
-  (define sol (solve (let ([interped (interp sketch)])
-                       (assert (positive? count))
+  (define-symbolic* x integer?)
+  (define sol (solve (let ([interped (interp sketch v)])
                        (assert (boolean? interped))
+                       (assert (not (f (interp sketch x))))
                        (assert (f interped)))))
   (cond
     [(unsat? sol) (synth:core v f)]

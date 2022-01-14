@@ -3,7 +3,7 @@
 
 #lang racket
 
-(provide oracle get-result)
+(provide oracle get-result (struct-out ans))
 (require "basic.rkt")
 
 (define dafny-path (or (getenv "DAFNYPATH") "/workspace/dafny/Binaries/Dafny"))
@@ -176,7 +176,7 @@
 
 (struct ans (out name) #:transparent)
 
-(define (extract-ans #:norm normalizer #:name name path target . other-args)
+(define (extract-ans #:norm normalizer #:name [name #f] path target . other-args)
   (define-values (in-for-out out-port) (make-pipe))
   (define-values (in-for-err err-port) (make-pipe))
   (define exit-ok?

@@ -197,7 +197,8 @@
                  'MapLength 'MapMember 'MapNotMember 'MapKeys 'MapValues
                  'ImmutableArraySafeSet 'ImmutableArraySafeReference
                  'TupleZeroLiteral 'TupleTwoLiteral 'TupleThreeLiteral 'TupleProjFirst 'TupleProjSecond 'TupleProjThird
-                 'IfElseStatement))
+                 'IfElseStatement
+                 'CharToInt))
              xs)
        (cons op (map loop xs))]
 
@@ -215,7 +216,8 @@
                       'SetSubset 'SetSuperset 'SetDisjoint 'SetUnion 'SetIntersect 'SetDifference
                       'MultisetSubset 'MultisetSuperset 'MultisetDisjoint 'MultisetUnion 'MultisetIntersect 'MultisetDifference
                       'IntLessThan 'IntGreaterThan
-                      'BoolEquiv 'BoolImplication 'BoolReverseImplication)) ,xs ,ops)
+                      'BoolEquiv 'BoolImplication 'BoolReverseImplication
+                      'CharLessThan 'CharGreaterThan)) ,xs ,ops)
        `(,op ,(map loop xs) ,ops)]))
   (parameterize ([current-section 0])
     (loop e)))
@@ -276,7 +278,7 @@
           (match (get-result path (λ (e) #f))
             ['known-mismatch (void)]
             [s
-             (define xs (sequence->list (in-port read (open-input-string s))))
+             (define xs (sequence->list (in-port read (open-input-string (ans-out s)))))
              (define the-data (build-data xs))
              (match (hash-keys (first the-data))
                ['() (void)]
@@ -301,7 +303,7 @@
                      [v (raise-user-error 'differ-verifier "Expected a failure, got: ~v" v)])]
                   [else
                    (match (get-result path (λ (_) #f))
-                     [(? string?) (void)]
+                     [(? ans?) (void)]
                      [v (raise-user-error 'differ-verifier "Expected an ok, got: ~v " v)])])])]))]
        [_ (error (port->string port))]))
 
