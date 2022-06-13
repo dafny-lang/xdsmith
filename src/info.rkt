@@ -9,3 +9,4 @@
 (define pkg-desc "Fuzzing Dafny")
 (define version "0.0")
 (define pkg-authors '(sorawee))
+(define license 'MIT)
