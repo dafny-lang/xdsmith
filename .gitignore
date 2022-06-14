@@ -3,3 +3,4 @@ node_modules
 src/tmp.dfy
 src/tmp-go
 src/tmp-java
+*.diff

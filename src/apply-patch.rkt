@@ -8,7 +8,7 @@
 
 #lang racket/base
 
-(require racket/system
+(require (only-in racket/system [system s:system])
          racket/string
          racket/format
          racket/cmdline
@@ -32,6 +32,11 @@ will be downloaded to"
    #:args (working-dir dafny-dir)
    (values (simple-form-path working-dir)
            (simple-form-path dafny-dir))))
+
+(define (system . xs)
+  (unless (apply s:system xs)
+    (printf "The command ~a returns non-zero status\n" xs)
+    (exit 1)))
 
 ;; paths of interest
 (define paths '("Source" "Binaries"))
@@ -63,4 +68,6 @@ will be downloaded to"
 ;; now, just apply the patches
 (for ([pr-id pr-ids])
   (define pr-path-prefix (build-path working-dir (~a (second pr-id))))
-  (system (format "patch -p1 < ~a-cleansed.diff" pr-path-prefix)))
+  (system (format "patch -p1 < ~a-cleansed.diff" pr-path-prefix))
+  (delete-file (format "~a.diff" pr-path-prefix))
+  (delete-file (format "~a-cleansed.diff" pr-path-prefix)))
