@@ -1,4 +1,4 @@
-FROM ubuntu:20.10
+FROM ubuntu:22.04
 
 ARG DEBIAN_FRONTEND=noninteractive
 ENV PATH="/root/.dotnet:${PATH}"
@@ -55,7 +55,7 @@ RUN echo "2"
 RUN git clone https://github.com/dafny-lang/dafny.git --recurse-submodules
 
 COPY apply-patch.rkt /workspace/apply-patch.rkt
-RUN racket apply-patch.rkt
+RUN racket apply-patch.rkt . dafny
 
 RUN cd dafny \
   && make exe \

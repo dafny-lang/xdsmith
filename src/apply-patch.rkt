@@ -1,35 +1,56 @@
 ;; Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 ;; SPDX-License-Identifier: MIT
 
+;; This script applies bug-fixing patches that are not yet merged to the
+;; upstream Dafny so that we don't discover issues that we have already
+;; discovered. It is automatically run in the Docker.
+;; Run racket apply-patch.rkt --help for help
+
 #lang racket/base
 
 (require racket/system
          racket/string
          racket/format
+         racket/cmdline
+         racket/path
          racket/list)
 
 (define (pr id #:user [user "dafny-lang"])
   (list user id))
 
 ;; PR ids
-(define pr-ids (list (pr 1 #:user "sorawee") (pr 1392) (pr 1393)))
-;; root dir relative to project dir, could also be absolute
-(define root-dir (or (getenv "XDSMITH_ROOT") ".."))
-;; project dir relative to root dir, could also be absolute
-(define proj-dir (or (getenv "XDSMITH_PROJ") "dafny"))
+(define pr-ids (list (pr 1 #:user "sorawee")))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(define-values (working-dir dafny-dir)
+  (command-line
+   #:usage-help "<working-dir> is a path to the directory where patches \
+will be downloaded to"
+   #:usage-help "<dafny-dir> is a path to the Dafny project directory \
+(which should contain subdirectories like Source and Binaries)"
+   #:args (working-dir dafny-dir)
+   (values (simple-form-path working-dir)
+           (simple-form-path dafny-dir))))
+
 ;; paths of interest
 (define paths '("Source" "Binaries"))
 
-;; we are currently at the root dir
+(current-directory working-dir)
 
 (for ([pr-id pr-ids])
-  (system (format "wget https://github.com/~a/dafny/pull/~a.diff" (first pr-id) (second pr-id))))
+  (system (format "wget https://github.com/~a/dafny/pull/~a.diff"
+                  (first pr-id)
+                  (second pr-id))))
 
-(current-directory proj-dir)
+(current-directory dafny-dir)
 
+(for ([path paths])
+  (unless (directory-exists? path)
+    (raise-user-error "<dafny-dir> is not pointing to the Dafny project. The value is:" dafny-dir)))
 
 (for ([pr-id pr-ids])
-  (define pr-path-prefix (build-path root-dir (~a (second pr-id))))
+  (define pr-path-prefix (build-path working-dir (~a (second pr-id))))
   ;; project should be clean
   ;; (1) apply the patch
   (system (format "patch -p1 < ~a.diff" pr-path-prefix))
@@ -41,5 +62,5 @@
 
 ;; now, just apply the patches
 (for ([pr-id pr-ids])
-  (define pr-path-prefix (build-path root-dir (~a (second pr-id))))
+  (define pr-path-prefix (build-path working-dir (~a (second pr-id))))
   (system (format "patch -p1 < ~a-cleansed.diff" pr-path-prefix)))
