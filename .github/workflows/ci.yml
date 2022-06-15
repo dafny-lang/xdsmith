@@ -1,0 +1,22 @@
+on: [push, pull_request]
+name: CI
+jobs:
+  build:
+    name: "XDsmith"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: Bogdanp/setup-racket@v0.12
+        with:
+          architecture: x64
+          distribution: full
+          variant: "CS"
+          version: "stable"
+      - name: Installing dependencies
+        run: |
+          raco pkg install -D --auto rosette
+          git clone https://gitlab.flux.utah.edu/xsmith/xsmith.git
+          cd xsmith/xsmith
+          raco pkg install -D --auto
+      - name: Testing XDsmith
+        run: raco test -x ./tests
