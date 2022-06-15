@@ -19,13 +19,23 @@
 
 (struct ans (out name) #:transparent)
 
-(define (extract-ans #:norm normalizer #:name [name #f] path target . other-args)
+(define (extract-ans #:norm normalizer #:name [name #f] #:verify? [verify? #t]
+                     path target . other-args*)
+  (define other-args
+    (cond
+      [verify? (list* "/compile:3" other-args*)]
+      [else (list* "/compile:4" "/noVerify" other-args*)]))
+
   (define-values (in-for-out out-port) (make-pipe))
   (define-values (in-for-err err-port) (make-pipe))
   (define exit-ok?
     (parameterize ([current-output-port out-port]
                    [current-error-port err-port])
-      (begin0 (apply system* dafny-path path (format "/compileTarget:~a" target) "/compile:3" other-args)
+      (begin0 (apply system*
+                     dafny-path
+                     path
+                     (format "/compileTarget:~a" target)
+                     other-args)
         (close-output-port out-port)
         (close-output-port err-port))))
   (define out-str (port->string in-for-out))
@@ -85,6 +95,9 @@
      (define sep "******************")
      (displayln (~a sep "\n" s "\n" sep))]))
 
+(define (raise-mismatch-error)
+  (raise-user-error "Mismatch!"))
+
 (define (check-pair a b)
   (unless (or (current-check-all?) (equal? (ans-out a) (ans-out b)))
     (printf "~a:\n" (ans-name a))
@@ -93,17 +106,18 @@
     (printf "~a:\n" (ans-name b))
     (display-output (ans-out b))
     (newline)
-    (raise-user-error "Mismatch!")))
+    (raise-mismatch-error)))
 
 (define (check-all . xs)
-  (define outs (map ans-out xs))
-  (unless (for/and ([out (rest outs)])
-            (equal? (first outs) out))
-    (for ([ans xs])
-      (printf "~a:\n" (ans-name ans))
-      (display-output (ans-out ans))
-      (newline))
-    (raise-user-error "Mismatch!")))
+  (when (current-check-all?)
+    (define outs (map ans-out xs))
+    (unless (for/and ([out (rest outs)])
+              (equal? (first outs) out))
+      (for ([ans xs])
+        (printf "~a:\n" (ans-name ans))
+        (display-output (ans-out ans))
+        (newline))
+      (raise-mismatch-error))))
 
 (define (oracle path)
   (with-handlers ([xdsmith-error? (handler (λ (_) #f))])
@@ -112,20 +126,25 @@
                                 #:name "JS"))
     (define ans-go (extract-ans path "go"
                                 #:norm normalize-go
-                                #:name "Go"))
+                                #:name "Go"
+                                #:verify? #f))
     (check-pair ans-js ans-go)
-    (define ans-cs (extract-ans path "cs" #:norm normalize-cs #:name "C#"))
+    (define ans-cs (extract-ans path "cs"
+                                #:norm normalize-cs
+                                #:name "C#"
+                                #:verify? #f))
     (check-pair ans-js ans-cs)
     (define ans-java (extract-ans path "java"
                                   #:norm normalize-java
-                                  #:name "Java"))
+                                  #:name "Java"
+                                  #:verify? #f))
     (check-pair ans-js ans-java)
     (define ans-cs* (extract-ans path "cs" "/optimize"
                                  #:norm normalize-cs
-                                 #:name "C# (optimized)"))
+                                 #:name "C# (optimized)"
+                                 #:verify? #f))
     (check-pair ans-js ans-cs*)
-    (when (current-check-all?)
-      (check-all ans-js ans-go ans-cs ans-java ans-cs*))))
+    (check-all ans-js ans-go ans-cs ans-java ans-cs*)))
 
 ;; get-result :: path-string? (exn? -> boolean?) -> any/c
 ;; Run a Dafny file `path` and return its output or errors with the xdsmith-error
