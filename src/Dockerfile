@@ -31,7 +31,7 @@ RUN git clone https://gitlab.flux.utah.edu/xsmith/xsmith.git \
 RUN wget -O- https://apt.corretto.aws/corretto.key | apt-key add -
 
 RUN add-apt-repository -y 'deb https://apt.corretto.aws stable main' \
- && apt install -y java-11-amazon-corretto-jdk
+ && apt install -y java-1.8.0-amazon-corretto-jdk
 
 # C#
 RUN wget https://dot.net/v1/dotnet-install.sh \
@@ -50,7 +50,7 @@ RUN raco pkg install -D --auto rosette
 
 # Dafny
 
-RUN echo "2"
+RUN echo "1"
 
 RUN git clone https://github.com/dafny-lang/dafny.git --recurse-submodules
 

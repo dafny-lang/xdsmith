@@ -1,178 +1,21 @@
 ;; Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 ;; SPDX-License-Identifier: MIT
 
+;; This module provides an oracle for differential testing and
+;; a function to obtain output from a Dafny program.
+;;
+;; Environment variable:
+;; - DAFNYPATH is a path to the Dafny executable.
+;;   By default, it is /workspace/dafny/Binaries/Dafny, which is the path where
+;;   Dafny locates in the Docker environment.
+
 #lang racket
 
 (provide oracle get-result (struct-out ans))
-(require "basic.rkt")
+(require "basic.rkt"
+         "normalize.rkt")
 
 (define dafny-path (or (getenv "DAFNYPATH") "/workspace/dafny/Binaries/Dafny"))
-
-(define readtable/fundamental
-  (make-readtable
-   #f
-
-   ;; don't treat ; as comment
-   #\; #\a #f
-
-   #\" #\a #f
-   #\' #\a #f
-   #\| #\a #f
-
-   #\,
-   'terminating-macro
-   (λ (ch port src line col pos) ", ")
-
-   #\newline
-   'terminating-macro
-   (λ (ch port src line col pos) ch)
-
-   ;; don't make +i become 0+1i
-   #\+ #\a #f
-   #\- #\a #f))
-
-(define (split-by xs e)
-  (for/fold ([result '()] [top '()] #:result (reverse (cons (reverse top) result)))
-            ([x (in-list xs)])
-    (cond
-      [(equal? e x)
-       (values (cons (reverse top) result) '())]
-      [else
-       (values result (cons x top))])))
-
-(define readtable/base
-  (make-readtable
-   readtable/fundamental
-
-   #\{
-   'terminating-macro
-   (λ (ch port src line col pos)
-     (define xs (map ~a (read/recursive port ch readtable/fundamental)))
-     (define all-elems (map string-append* (split-by xs ", ")))
-     (~a "{" (string-join (sort all-elems string<?) ", ") "}"))
-
-   #\[
-   'terminating-macro
-   (λ (ch port src line col pos)
-     (define xs (map ~a (read/recursive port ch readtable/fundamental)))
-     (~a "[" (string-join xs "") "]"))
-
-   #\M
-   'dispatch-macro
-   (λ (ch port src line col pos)
-     (~a "multiset" (read port)))
-
-   #\D
-   'dispatch-macro
-   (λ (ch port src line col pos)
-     (define xs (map ~a (read/recursive port #f readtable/fundamental)))
-     (define xs-norm
-       (match (split-by xs ", ")
-         ['(()) '(())]
-         [xs
-          (for/fold ([acc '()] [seen (set)] #:result (reverse acc)) ([x (in-list (reverse xs))])
-            (cond
-              [(set-member? seen (first x))
-               (values acc seen)]
-              [else
-               (values (cons x acc) (set-add seen (first x)))]))]))
-     (define all-elems (map string-append* xs-norm))
-     (~a "map[" (string-join (sort all-elems string<?) ", ") "]"))))
-
-(define readtable/java
-  readtable/base)
-
-(define readtable/cs
-  (make-readtable
-   readtable/base
-   #\F
-   'dispatch-macro
-   (λ (ch port src line col pos)
-     (read port)
-     "Function")))
-
-(define readtable/js
-  (make-readtable
-   readtable/base
-   #\F
-   'dispatch-macro
-   (λ (ch port src line col pos)
-     (parameterize ([current-readtable readtable/fundamental])
-       (read port)
-       (read port))
-     "Function")))
-
-(define (peek/equal? str in)
-  (equal? str (peek-string (string-length str) 0 in)))
-
-(define (peek/read? str in)
-  (and (peek/equal? str in)
-       (read-string (string-length str) in)))
-
-(define readtable/go
-  (make-readtable
-   readtable/base
-   #\F
-   'dispatch-macro
-   (λ (ch port src line col pos)
-     ;; read argument types
-     (read port)
-     ;; read return type
-     (cond
-       ;; two spaces; one exists already; another because we insert it ourselves
-       [(peek/equal? "  #F" port) (read port)]
-       [(or (peek/read? " dafny.Seq" port)
-            (peek/read? " dafny.Int" port)
-            (peek/read? " dafny.Char" port)
-            (peek/read? " dafny.Set" port)
-            (peek/read? " dafny.MultiSet" port)
-            (peek/read? " dafny.Map" port)
-            (peek/read? " dafny.Tuple" port)
-            (peek/read? " bool" port))
-        (void)]
-       [else (error 'go-readtable "Unexpected ~s" (read-string 100 port))])
-     "Function")))
-
-(define (deal-with-common s)
-  ;; normalize multiset and map
-  (regexp-replace* #px"multiset\\{" (regexp-replace* #px"map\\[" s " #D[") " #M{"))
-
-(define (normalize-java s)
-  (define p (open-input-string
-             (deal-with-common
-              (regexp-replace* #px"_System\\.__default\\$\\$Lambda\\$[a-z0-9/@]*" s "Function"))))
-
-  (string-join (map ~a
-                    (parameterize ([current-readtable readtable/java])
-                      (sequence->list (in-port read p))))
-               ""))
-
-(define (normalize-cs s)
-  (define p (open-input-string
-             (deal-with-common
-              (regexp-replace* #px"System\\.Func`\\d+" s " #F"))))
-  (string-join (map ~a
-                    (parameterize ([current-readtable readtable/cs])
-                      (sequence->list (in-port read p))))
-               ""))
-
-(define (normalize-js s)
-  (define p (open-input-string
-             (deal-with-common
-              (regexp-replace* #px"(function |lift__\\d+(?=\\())" s " #F"))))
-  (string-join (map ~a
-                    (parameterize ([current-readtable readtable/js])
-                      (sequence->list (in-port read p))))
-               ""))
-
-(define (normalize-go s)
-  (define p (open-input-string
-             (deal-with-common
-              (regexp-replace* #px"func(?=\\()" s " #F"))))
-  (string-join (map ~a
-                    (parameterize ([current-readtable readtable/go])
-                      (sequence->list (in-port read p))))
-               ""))
 
 (struct ans (out name) #:transparent)
 
@@ -264,18 +107,35 @@
 
 (define (oracle path)
   (with-handlers ([xdsmith-error? (handler (λ (_) #f))])
-    (define ans-js (extract-ans path "js" #:norm normalize-js #:name "JS"))
-    (define ans-go (extract-ans path "go" #:norm normalize-go #:name "Go"))
+    (define ans-js (extract-ans path "js"
+                                #:norm normalize-js
+                                #:name "JS"))
+    (define ans-go (extract-ans path "go"
+                                #:norm normalize-go
+                                #:name "Go"))
     (check-pair ans-js ans-go)
     (define ans-cs (extract-ans path "cs" #:norm normalize-cs #:name "C#"))
     (check-pair ans-js ans-cs)
-    (define ans-java (extract-ans path "java" #:norm normalize-java #:name "Java 11"))
+    (define ans-java (extract-ans path "java"
+                                  #:norm normalize-java
+                                  #:name "Java"))
     (check-pair ans-js ans-java)
-    (define ans-cs* (extract-ans path "cs" "/optimize" #:norm normalize-cs #:name "C# (optimized)"))
+    (define ans-cs* (extract-ans path "cs" "/optimize"
+                                 #:norm normalize-cs
+                                 #:name "C# (optimized)"))
     (check-pair ans-js ans-cs*)
     (when (current-check-all?)
       (check-all ans-js ans-go ans-cs ans-java ans-cs*))))
 
-(define (get-result path handling-error)
-  (with-handlers ([xdsmith-error? (handler handling-error)])
+;; get-result :: path-string? (exn? -> boolean?) -> any/c
+;; Run a Dafny file `path` and return its output or errors with the xdsmith-error
+;; `handling-error?` is used to determined if we want to handle an error or not.
+;; If we are handling the error, then the result could be either:
+;;   - 'error (it's an expected verification error)
+;;   - any/c
+;; Otherwise, the result could be either:
+;;   - 'known-mismatch
+;;   - ans?
+(define (get-result path handling-error?)
+  (with-handlers ([xdsmith-error? (handler handling-error?)])
     (extract-ans path "js" #:norm values)))
