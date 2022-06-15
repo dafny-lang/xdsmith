@@ -1,6 +1,9 @@
 ;; Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 ;; SPDX-License-Identifier: MIT
 
+;; This module provides functions synth:pos and synth:neg that can be used for
+;; synthesizing predicates.
+
 #lang rosette
 
 (provide synth:pos synth:neg)
@@ -29,20 +32,21 @@
         [(And a b) `(And ,(loop a) ,(loop b))]
         [(Or a b) `(Or ,(loop a) ,(loop b))]))))
 
+(define (interp e replacement)
+  (define (interp e)
+    (destruct e
+      [(TheVar) replacement]
+      [(IntLiteral v) v]
+      [(Plus l r) (+ (interp l) (interp r))]
+      [(Minus l r) (- (interp l) (interp r))]
+      [(Equal l r) (= (interp l) (interp r))]
+      [(LessThan l r) (< (interp l) (interp r))]
+      [(And l r) (&& (interp l) (interp r))]
+      [(Or l r) (|| (interp l) (interp r))]))
+  (interp e))
+
 (define (synth:core v f)
   (clear-state!)
-  (define (interp e replacement)
-    (define (interp e)
-      (destruct e
-        [(TheVar) replacement]
-        [(IntLiteral v) v]
-        [(Plus l r) (+ (interp l) (interp r))]
-        [(Minus l r) (- (interp l) (interp r))]
-        [(Equal l r) (= (interp l) (interp r))]
-        [(LessThan l r) (< (interp l) (interp r))]
-        [(And l r) (&& (interp l) (interp r))]
-        [(Or l r) (|| (interp l) (interp r))]))
-    (interp e))
   (define (?expr depth random-depth)
     (define (?expr depth)
       (define (make-choice c)
@@ -75,6 +79,7 @@
     [(unsat? sol) (synth:core v f)]
     [else (pp (evaluate sketch sol))]))
 
+;; synth:pos : number? -> ast?
 (define (synth:pos v)
   (synth:core v values))
 

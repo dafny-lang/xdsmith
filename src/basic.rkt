@@ -9,7 +9,10 @@
          (struct-out xdsmith:bad-compilation)
          (struct-out xdsmith:unexpected-output))
 
+;; either 'readable or 'blob
 (define current-print-style (make-parameter 'readable))
+
+;; either #f or #t
 (define current-check-all? (make-parameter #f))
 
 (struct xdsmith-error () #:transparent)

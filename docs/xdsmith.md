@@ -165,3 +165,7 @@ In the above code, we construct a readtable that
   Once we have the result, we count the number of `", "` to see how many elements there are.
   Next, we pad the existing elements with empty string elements (this is meant to deal with an output like `"{, 1}"` which
   should normalizes to `"{1, }"`) and sort all elements alphabetically.
+
+## Testing
+
+To run tests, execute `raco test .` in the `tests` directory.
