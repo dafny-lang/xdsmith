@@ -15,6 +15,6 @@ jobs:
       - name: Installing dependencies
         run: |
           cd xdsmith
-          raco pkg install --auto
+          raco pkg install -D --auto
       - name: Testing XDsmith
         run: raco test -x ./xdsmith-test/unit
