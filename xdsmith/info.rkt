@@ -5,7 +5,7 @@
 (define collection "xdsmith")
 (define deps '("base"
                "clotho"
-               "https://gitlab.flux.utah.edu/xsmith/xsmith.git"
+               "https://gitlab.flux.utah.edu/xsmith/xsmith.git?path=xsmith"
                "racr"
                "pprint"
                "rosette"))
