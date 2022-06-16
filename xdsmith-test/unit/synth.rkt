@@ -3,7 +3,7 @@
 (module+ test
   (require clotho
            rackunit
-           "../src/synth.rkt")
+           xdsmith/synth)
 
   (parameterize ([current-random-source (make-random-source 0)])
     (check-equal? ((synth:pos 123) 'v)

@@ -16,9 +16,13 @@
          racket/file
          (prefix-in synth: "synth.rkt"))
 
+(provide main get-gen)
+
 (module gen racket
   (require "fuzzer.rkt")
   (provide gen)
+
+  ;; gen :: (or/c #f string?) -> (values string? ast/c input-port?)
   (define (gen seed)
     (define s
       (with-output-to-string
@@ -34,6 +38,9 @@
     (define datum (read p))
     (values seed-info datum p)))
 
+;; NOTE: Xsmith seems to be leaking memory, so make a dynamic instantiation
+;; so that we can discard the entire namespace after each generation,
+;; reclaiming the memory back
 (define path-to-gen (quote-module-path gen))
 
 (define current-mode (make-parameter #f))
@@ -235,22 +242,72 @@
       [`(meth-for ,meth) (hash-set! meth-data (symbol->string meth) #t)]))
   (list section-data param-data ret-data meth-data))
 
-(define (handling-error e)
-  (string-contains? (xdsmith:bad-compilation-out e)
-                    "Error: assertion violation"))
+(define (get-gen)
+  (dynamic-require path-to-gen 'gen))
+
+(define (main path seed gen current-expect-failure?)
+  (define-values (seed-info datum port) (gen seed))
+  (displayln seed-info)
+  (match (regexp-match #px"\\d+$" seed-info)
+    [(list seed)
+     (parameterize ([current-random-source (make-random-source (string->number seed))])
+       (define datum*
+         (parameterize ([current-mode 'preprocess])
+           (process datum)))
+       (with-output-to-file path #:exists 'replace
+         (λ ()
+           (displayln seed-info)
+           (display (main-print datum*))))
+       (log-xdsmith-logger-info "pre-code: " (file->string path))
+       (match (get-result path)
+         ['known-mismatch (void)]
+         [s
+          (define xs (sequence->list (in-port read (open-input-string (ans-out s)))))
+          (define the-data (build-data xs))
+          (match (hash-keys (first the-data))
+            ['() (void)]
+            [xs
+             (define datum*
+               (parameterize ([current-mode 'postprocess]
+                              [current-data the-data]
+                              [current-negative (if current-expect-failure?
+                                                    (random-ref xs)
+                                                    -1)])
+                 (process datum)))
+             (with-output-to-file path #:exists 'replace
+               (λ ()
+                 (displayln seed-info)
+                 (display (main-print datum*))))
+             (log-xdsmith-logger-info "post-code: " (file->string path))
+             (cond
+               [current-expect-failure?
+                (match (with-handlers
+                         ([xdsmith-error:run?
+                           (λ (e)
+                             (match e
+                               [(xdsmith-error:bad-compilation target out err)
+                                #:when (string-contains? err "Error: assertion violation")
+                                'ok]
+                               [_ e]))])
+                         (get-result path))
+                  ['ok (void)]
+                  [(? xdsmith-error:run? e) (raise e)]
+
+                  ['known-mismatch (error 'should-not-be-possible)]
+                  [(? ans? ans)
+                   (raise (xdsmith-error:unexpected 'failure ans))])]
+               [else
+                (match (get-result path)
+                  ['known-mismatch (error 'should-not-be-possible)]
+                  [(? ans?) (void)])])])]))]
+    [_ (error (port->string port))]))
 
 (module+ main
   (define current-limit +inf.0)
   (define current-batch-size 5)
-  (define current-print-pre #f)
-  (define current-print-post #f)
   (define current-expect-failure? #f)
   (command-line
    #:once-each
-   [("--print-pre") "Print preprocessed code"
-                    (set! current-print-pre #t)]
-   [("--print-post") "Print postprocessed code"
-                     (set! current-print-post #t)]
    [("--limit") num-limit "Iteration limit (default: none)"
                 (set! current-limit (string->number num-limit))]
    [("--size") batch-size "Batch size (default: 10)"
@@ -259,61 +316,14 @@
                    (set! current-expect-failure? #t)]
    #:args ([seed #f])
    (define path "tmp.dfy")
-
-   (define (main seed gen)
-     (define-values (seed-info datum port) (gen seed))
-     (displayln seed-info)
-     (match (regexp-match #px"\\d+$" seed-info)
-       [(list seed)
-        (parameterize ([current-random-source (make-random-source (string->number seed))])
-          (define datum*
-            (parameterize ([current-mode 'preprocess])
-              (process datum)))
-          (with-output-to-file path #:exists 'replace
-            (λ ()
-              (displayln seed-info)
-              (display (main-print datum*))))
-          (when current-print-pre
-            (displayln (file->string path)))
-          (match (get-result path (λ (e) #f))
-            ['known-mismatch (void)]
-            [s
-             (define xs (sequence->list (in-port read (open-input-string (ans-out s)))))
-             (define the-data (build-data xs))
-             (match (hash-keys (first the-data))
-               ['() (void)]
-               [xs
-                (define datum**
-                  (parameterize ([current-mode 'postprocess]
-                                 [current-data the-data]
-                                 [current-negative (if current-expect-failure?
-                                                       (random-ref xs)
-                                                       -1)])
-                    (process datum)))
-                (with-output-to-file path #:exists 'replace
-                  (λ ()
-                    (displayln seed-info)
-                    (display (main-print datum**))))
-                (when current-print-post
-                  (displayln (file->string path)))
-                (cond
-                  [current-expect-failure?
-                   (match (get-result path handling-error)
-                     ['error (void)]
-                     [v (raise-user-error 'differ-verifier "Expected a failure, got: ~v" v)])]
-                  [else
-                   (match (get-result path (λ (_) #f))
-                     [(? ans?) (void)]
-                     [v (raise-user-error 'differ-verifier "Expected an ok, got: ~v " v)])])])]))]
-       [_ (error (port->string port))]))
-
-   (cond
-     [seed (main seed (dynamic-require path-to-gen 'gen))]
-     [else
-      (for ([i (in-range current-limit)])
-        (when (> (hash-count memo-table) 10000)
-          (hash-clear! memo-table))
-        (parameterize ([current-namespace (make-base-namespace)])
-          (define gen (dynamic-require path-to-gen 'gen))
-          (for ([j (in-range current-batch-size)])
-            (main #f gen))))])))
+   (with-handlers ([xdsmith-error? display-xdsmith-error])
+     (cond
+       [seed (main path seed (get-gen) current-expect-failure?)]
+       [else
+        (for ([i (in-range current-limit)])
+          (when (> (hash-count memo-table) 10000)
+            (hash-clear! memo-table))
+          (parameterize ([current-namespace (make-base-namespace)])
+            (define gen (get-gen))
+            (for ([j (in-range current-batch-size)])
+              (main path #f gen current-expect-failure?))))]))))

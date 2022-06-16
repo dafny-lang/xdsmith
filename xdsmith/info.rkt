@@ -3,10 +3,13 @@
 
 #lang info
 (define collection "xdsmith")
-(define deps '("base" "clotho" "xsmith" "racr" "pprint" "rosette"))
-(define build-deps '("scribble-lib" "racket-doc" "rackunit-lib"))
-(define scribblings '(("scribblings/xdsmith.scrbl" ())))
-(define pkg-desc "Fuzzing Dafny")
+(define deps '("base"
+               "clotho"
+               "https://gitlab.flux.utah.edu/xsmith/xsmith.git"
+               "racr"
+               "pprint"
+               "rosette"))
+(define pkg-desc "Testing Dafny")
 (define version "0.0")
 (define pkg-authors '(sorawee))
 (define license 'MIT)

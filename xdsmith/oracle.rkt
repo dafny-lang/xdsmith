@@ -11,16 +11,32 @@
 
 #lang racket
 
-(provide oracle get-result (struct-out ans))
+(provide oracle get-result)
 (require "basic.rkt"
          "normalize.rkt")
 
 (define dafny-path (or (getenv "DAFNYPATH") "/workspace/dafny/Binaries/Dafny"))
 
-(struct ans (out name) #:transparent)
-
-(define (extract-ans #:norm normalizer #:name [name #f] #:verify? [verify? #t]
-                     path target . other-args*)
+;; extract-ans :: path-string? string? string? ...
+;;                #:norm (-> string? string?)
+;;                #:name (or/c #f string?) = #f
+;;                #:verify? boolean? = #t
+;;                -> ans?
+;; @exn xdsmith-error:run
+;;
+;; Compiles and runs a Dafny program at `path` via the `target` language backend.
+;; The name of the language backend can be further refined by the
+;; `name` parameters.
+;; If the run terminates normally, the output is normalized via `normalizer`.
+;; If `verify?` is true, then the compilation also verifies that the Dafny program
+;; satisfies its specification.
+;; Abnormally terminated programs (compilation error, verification error)
+;; will cause a `xdsmith-error:run` exception.
+(define (extract-ans path target
+                     #:norm normalizer
+                     #:name [name target]
+                     #:verify? [verify? #t]
+                     . other-args*)
   (define other-args
     (cond
       [verify? (list* "/compile:3" other-args*)]
@@ -41,86 +57,57 @@
   (define out-str (port->string in-for-out))
   (define err-str (port->string in-for-err))
   (unless exit-ok?
-    (raise (xdsmith:bad-compilation target out-str err-str)))
+    (raise (xdsmith-error:bad-compilation target out-str err-str)))
   (match (regexp-match #px"^(.*?)Running\\.\\.\\.\n\n(.*)$" out-str)
     [(list _ _ the-ans) (ans (normalizer the-ans) name)]
-    [_ (raise (xdsmith:unexpected-output target out-str err-str))]))
+    [_ (raise (xdsmith-error:unexpected-output name out-str err-str))]))
 
 (define (known-mismatch)
-  (displayln "Known mismatch or error!")
   'known-mismatch)
 
-(define ((handler expect?) e)
+(define (known-mismatch-handler e)
   (match e
-    [(? expect?) 'error]
-    [(xdsmith:bad-compilation target out err)
-     (displayln (format "Compilation error for ~a" target))
-     (displayln "Output:")
-     (displayln out)
-     (displayln "Error:")
-     (displayln err)
-     (newline)
+    [(xdsmith-error:bad-compilation name out err)
      (cond
-       [(string-contains? (xdsmith:bad-compilation-err e)
-                          "Process terminated. Assumption failed.")
+       ;; actually from Dafny verification executed as a part of JS run
+       [(and (equal? name "js")
+             (string-contains?
+              err
+              "Process terminated. Assumption failed."))
         (known-mismatch)]
-       [(string-contains? (xdsmith:bad-compilation-out e)
-                          "error CS0305: Using the generic type 'Func<TResult>' requires 1 type arguments")
+       [(and (equal? name "js")
+             (string-contains?
+              out
+              "Error: the type of this expression is underspecified"))
         (known-mismatch)]
-       [(string-contains? (xdsmith:bad-compilation-out e)
-                          "Error: the type of this expression is underspecified")
+       [(and (equal? name "js")
+             (string-contains?
+              out
+              "Error: All elements of display must have some common supertype"))
         (known-mismatch)]
-       [(string-contains? (xdsmith:bad-compilation-out e)
-                          "error: local variables referenced from a lambda expression must be final or effectively final")
+
+       ;; from non-verification
+       [(and (equal? name "cs")
+             (string-contains?
+              out
+              "error CS0305: Using the generic type 'Func<TResult>' requires 1 type arguments"))
         (known-mismatch)]
-       [(string-contains? (xdsmith:bad-compilation-out e)
-                          "Error: All elements of display must have some common supertype")
+       [(and (equal? name "java")
+             (string-contains?
+              out
+              "error: local variables referenced from a lambda expression must be final or effectively final"))
         (known-mismatch)]
-       [else (displayln "New result!")
-             (exit 1)])]
-    [(xdsmith:unexpected-output target out err)
-     (displayln (format "Unexpected output for ~a" target))
-     (displayln "Output:")
-     (displayln out)
-     (displayln "Error:")
-     (displayln err)
-     (newline)
-     (exit 1)]
+       [else (raise e)])]
     [_ (raise e)]))
 
-(define (display-output s)
-  (match (current-print-style)
-    ['blob (printf "~v" s)]
-    ['readable
-     (define sep "******************")
-     (displayln (~a sep "\n" s "\n" sep))]))
-
-(define (raise-mismatch-error)
-  (raise-user-error "Mismatch!"))
-
-(define (check-pair a b)
-  (unless (or (current-check-all?) (equal? (ans-out a) (ans-out b)))
-    (printf "~a:\n" (ans-name a))
-    (display-output (ans-out a))
-    (newline)
-    (printf "~a:\n" (ans-name b))
-    (display-output (ans-out b))
-    (newline)
-    (raise-mismatch-error)))
-
-(define (check-all . xs)
-  (when (current-check-all?)
-    (define outs (map ans-out xs))
-    (unless (for/and ([out (rest outs)])
-              (equal? (first outs) out))
-      (for ([ans xs])
-        (printf "~a:\n" (ans-name ans))
-        (display-output (ans-out ans))
-        (newline))
-      (raise-mismatch-error))))
-
+;; oracle :: path-string? -> (or/c 'ok 'known-mismatch)
+;; @exn xdsmith-error:run, xdsmith-error:mismatch
+;;
+;; Runs the Dafny program at `path` with various backends
+;; and compares their outputs. If the outputs don't agree,
+;; raise the xdsmith-error:mismatch exception.
 (define (oracle path)
-  (with-handlers ([xdsmith-error? (handler (λ (_) #f))])
+  (with-handlers ([xdsmith-error:run? known-mismatch-handler])
     (define ans-js (extract-ans path "js"
                                 #:norm normalize-js
                                 #:name "JS"))
@@ -128,33 +115,30 @@
                                 #:norm normalize-go
                                 #:name "Go"
                                 #:verify? #f))
-    (check-pair ans-js ans-go)
     (define ans-cs (extract-ans path "cs"
                                 #:norm normalize-cs
                                 #:name "C#"
                                 #:verify? #f))
-    (check-pair ans-js ans-cs)
     (define ans-java (extract-ans path "java"
                                   #:norm normalize-java
                                   #:name "Java"
                                   #:verify? #f))
-    (check-pair ans-js ans-java)
     (define ans-cs* (extract-ans path "cs" "/optimize"
                                  #:norm normalize-cs
                                  #:name "C# (optimized)"
                                  #:verify? #f))
-    (check-pair ans-js ans-cs*)
-    (check-all ans-js ans-go ans-cs ans-java ans-cs*)))
 
-;; get-result :: path-string? (exn? -> boolean?) -> any/c
-;; Run a Dafny file `path` and return its output or errors with the xdsmith-error
-;; `handling-error?` is used to determined if we want to handle an error or not.
-;; If we are handling the error, then the result could be either:
-;;   - 'error (it's an expected verification error)
-;;   - any/c
-;; Otherwise, the result could be either:
-;;   - 'known-mismatch
-;;   - ans?
-(define (get-result path handling-error?)
-  (with-handlers ([xdsmith-error? (handler handling-error?)])
+    (define outs (list ans-js ans-go ans-cs ans-java ans-cs*))
+    (define outs* (map ans-out outs))
+    (unless (for/and ([out (rest outs*)])
+              (equal? (first outs*) out))
+      (raise (xdsmith-error:mismatch outs)))
+    'ok))
+
+;; get-result :: path-string? -> (or/c ans? 'known-mismatch)
+;; @exn xdsmith-error:run
+;;
+;; Run a Dafny file `path` and return its output
+(define (get-result path)
+  (with-handlers ([xdsmith-error:run? known-mismatch-handler])
     (extract-ans path "js" #:norm values)))

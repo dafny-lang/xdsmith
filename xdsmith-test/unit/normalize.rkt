@@ -2,7 +2,7 @@
 
 (module+ test
   (require rackunit
-           "../src/normalize.rkt")
+           xdsmith/normalize)
 
   (check-equal? (normalize-js #<<EOF
 false-1952553523
