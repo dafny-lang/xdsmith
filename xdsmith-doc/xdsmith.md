@@ -34,11 +34,12 @@ This can be done by running `racket xdsmith/apply-patch.rkt <path-to-tmp-dir> <p
 
 ### Overview 
 
-To run XDsmith in the compiler testing mode, execute `racket ../xdsmith/differ.rkt` from the directory `work-dir`,
+Running should be done from the directory `work-dir` (which has `bignumber.js` installed).
+To run XDsmith in the compiler testing mode, execute `racket ../xdsmith/differ.rkt`,
 provided that the Dafny executable is at `/workspace/dafny/Binaries/Dafny` (which is the case in the Docker environment).
 If you install XDsmith manually, you can set the environment variable `DAFNYPATH` to the path of the Dafny executable.
 
-Similarly, to run XDsmith in the verifier testing mode, execute either `racket ../xdsmith/differ-verify.rkt` or `racket ../xdsmith/differ-verify.rkt --negative`.
+To run XDsmith in the verifier testing mode, execute either `racket ../xdsmith/differ-verify.rkt` or `racket ../xdsmith/differ-verify.rkt --negative`.
 
 ### `xdsmith/fuzzer.rkt`
 
