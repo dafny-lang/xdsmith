@@ -21,7 +21,8 @@ jobs:
         with:
           dafny-version: "3.4.0"
       - uses: actions/setup-go@v3
-        go-version: '>=1.17.0'
+        with:
+          go-version: '>=1.17.0'
       - uses: actions/setup-node@v3
         with:
           node-version: 18
