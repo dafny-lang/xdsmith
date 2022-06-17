@@ -38,4 +38,6 @@ jobs:
           cd work-dir
           npm install bignumber.js
       - name: Testing XDsmith
+        env:
+          DAFNYPATH: $HOME/dafny/dafny
         run: raco test -x ./xdsmith-test/integration
