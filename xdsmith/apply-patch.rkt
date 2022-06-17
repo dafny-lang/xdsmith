@@ -38,7 +38,7 @@ will be downloaded to"
     (printf "The command ~a returns non-zero status\n" xs)
     (exit 1)))
 
-;; paths of interest
+;; Paths of interest. Exclude other paths to minimize potential merge conflicts.
 (define paths '("Source" "Binaries"))
 
 (current-directory working-dir)

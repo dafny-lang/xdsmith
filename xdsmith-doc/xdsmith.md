@@ -2,18 +2,13 @@
 
 ## Introduction 
 
-Dafny is a programming language with built-in specification constructs.
-The Dafny verifier can check that Dafny programs satisfy their specifications statically,
-and the Dafny compilers can compile a Dafny program into a target (mainstream) language.
-
-This tool, XDsmith, aims to uncover bugs in the Dafny verifier and the Dafny compilers
-by random testing.
+XDsmith is a tool aiming to uncover bugs in the Dafny verifier and the Dafny compilers by random testing.
 
 ## Installation
 
 ### Docker
 
-We recommend that you use Docker to run XDsmith. Therefore, you will need to install Docker, either via the installer from the website or from your OS’s software manager. After that, run `docker build -t test .` from the the project directory. Then, you should be able to run `docker run --entrypoint bash -it test` to start the XDsmith environment.
+We recommend that you use Docker to run XDsmith. If you choose to do this, you will need to install Docker, either via the installer from the website or from your OS’s software manager. After that, run `docker build -t test .` from the the project directory. Then, you should be able to run `docker run --entrypoint bash -it test` to start the XDsmith environment.
 
 ### Manual Installtion
 
@@ -24,32 +19,28 @@ Alternatively, you can install XDsmith manually. Following are dependencies:
 - Go 
 - JavaScript (`node` and `npm`)
 - Dafny
-  - If you wish to _patch_ Dafny locally to suppress an error, you should build Dafny from source. Instruction can be found at https://github.com/dafny-lang/dafny/wiki/INSTALL
+  - If you wish to patch Dafny locally to suppress known errors, you should build Dafny from source. Instructions for Dafny installation can be found at https://github.com/dafny-lang/dafny/wiki/INSTALL. Patching instructions can be found at [the patching section](#patching)
 - C# (which should already be installed as a part of Dafny)
 
-Following dependencies are additionally required:
+In the `xdsmith` subdirectory (which has a file `info.rkt`), run `raco pkg install -D --auto`. This will install other dependencies from the Racket ecosystem.
 
-- Rosette: run `raco pkg install -D --auto rosette` after Racket is installed.
-- Xsmith: run
-  ```
-  git clone https://gitlab.flux.utah.edu/xsmith/xsmith.git
-  cd xsmith/xsmith
-  raco pkg install -D --auto
-  ```
-- In the `src` directory, run `npm install bignumber.js` for JavaScript library deps.
+Lastly, in the `work-dir` directory, run `npm install bignumber.js` to install the JavaScript library dependency.
+
+#### Patching
+
+This can be done by running `racket xdsmith/apply-patch.rkt <path-to-tmp-dir> <path-to-dafny-dir>`. Note that `<path-to-dafny-dir>` should be the top-level of the Dafny project (which contains subdirectories like `Binaries`, `Source`, etc.). Patches can be adjusted by modifying `apply-patch.rkt`.
 
 ## Running XDsmith 
 
 ### Overview 
 
-To run XDsmith in the compiler testing mode, execute `racket differ.rkt`, provided that the Dafny executable is at
-`/workspace/dafny/Binaries/Dafny` (which is the case in the Docker environment).
+To run XDsmith in the compiler testing mode, execute `racket ../xdsmith/differ.rkt` from the directory `work-dir`,
+provided that the Dafny executable is at `/workspace/dafny/Binaries/Dafny` (which is the case in the Docker environment).
 If you install XDsmith manually, you can set the environment variable `DAFNYPATH` to the path of the Dafny executable.
 
-Similarly, to run XDsmith in the verifier testing mode, execute `racket differ-verify.rkt`.
+Similarly, to run XDsmith in the verifier testing mode, execute either `racket ../xdsmith/differ-verify.rkt` or `racket ../xdsmith/differ-verify.rkt --negative`.
 
-### `fuzzer.rkt`
-
+### `xdsmith/fuzzer.rkt`
 
 The file `fuzzer.rkt` is the program generator. You can invoke `racket fuzzer.rkt` to generate an AST in the S-exp form.
 
@@ -61,14 +52,21 @@ Useful command-line options include:
 - `--timeout <timeout>`: set a timeout for program generation. This is useful for debugging the program generator when it loops infinitely.
 - `--s-exp-on-error true`: print a partial AST when an error occurs during program generation.
 - `with-print-constrained true`: constrain printing for the verification fuzzing mode.
-- (experimental) `--reduction-script runner-for-reducer` and `--rediction-directory reduction-dir`: attempt to minimize program size when it encounters an error. Must be specified with `--dafny-syntax true`. Also see the [overview section](#overview) for the requirement about Dafny path. E.g., invoke it with `DAFNYPATH=~/projects/dafny/Scripts/dafny racket fuzzer.rkt --dafny-syntax true --reduction-script runner-for-reducer --reduction-directory reduction-dir`. It is currently very slow and not practical to use in the real environment.
 - `--num <num>`: continuously generate <num> programs. This parameter is weird in a sense that it must be specified as the last flag. It is only useful for debugging to make sure that the program generator really works (and not happens to be successful due to a lucky random seed).
 
 Other command-line options can be seen by invoking `racket fuzzer.rkt --help`.
 
-### `differ.rkt`
+### `xdsmith/differ.rkt`
 
 The file `differ.rkt` invokes the program generator and the oracle to determine if there is a mismatch in backends. See [the overview section](#overview) for the requirement about Dafny path. Running it without any argument will generate random programs until a mismatch is encountered. Running it with an argument, which must be a path to a Dafny program, will determine a mismatch on that particular Dafny file.
+
+### `xdsmith/differ-verify.rkt`
+
+The file `differ-verify.rkt` performs verification testing. See [the overview section](#overview) for the requirement about Dafny path. Running it without any argument will generate random programs until a mismatch is encountered. Running it with an argument, which must be a seed number, will determine a mismatch on that particular seed number.
+
+In the regular mode, verification testing attempts to generate "good" specifications. Therefore, it expects that the verification will hold. A verification failure would indicate a precision issue.
+
+An optional flag `--negative` can be used to switch to the negative mode, where verification testing attempts to generate "bad" specifications. Therefore, it expects that the verification will not hold. A verification success would indicate a soundness issue.
 
 ### Adding a new construct
 
@@ -168,4 +166,5 @@ In the above code, we construct a readtable that
 
 ## Testing
 
-To run tests, execute `raco test .` in the `tests` directory.
+To run tests, execute `raco test .` in the `xdsmith-test` directory.
+Unit tests are in the subdirectory `unit`, and integration tests are in the subdirectory `integration`.

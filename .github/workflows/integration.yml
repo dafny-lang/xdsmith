@@ -1,0 +1,40 @@
+on: [push, pull_request]
+name: CI
+jobs:
+  build:
+    name: "Integration tests"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: Bogdanp/setup-racket@v0.12
+        with:
+          architecture: x64
+          distribution: full
+          variant: "CS"
+          version: "stable"
+      - name: Installing dependencies
+        run: |
+          cd xdsmith
+          raco pkg install -D --auto
+      - name: "Install Dafny"
+        uses: dafny-lang/setup-dafny-action@v1
+        with:
+          dafny-version: "3.4.0"
+      - uses: actions/setup-go@v3
+        go-version: '>=1.17.0'
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 18
+      - uses: actions/setup-dotnet@v2
+        with:
+          dotnet-version: "6.0.x"
+      - uses: actions/setup-java@v3
+        with:
+          distribution: 'corretto'
+          java-version: '8'
+      - name: "Install bignumber.js"
+        run: |
+          cd work-dir
+          npm install bignumber.js
+      - name: Testing XDsmith
+        run: raco test -x ./xdsmith-test/integration

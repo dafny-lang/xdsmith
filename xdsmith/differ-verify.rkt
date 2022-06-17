@@ -286,7 +286,7 @@
                            (λ (e)
                              (match e
                                [(xdsmith-error:bad-compilation target out err)
-                                #:when (string-contains? err "Error: assertion violation")
+                                #:when (string-contains? out "Error: assertion violation")
                                 'ok]
                                [_ e]))])
                          (get-result path))

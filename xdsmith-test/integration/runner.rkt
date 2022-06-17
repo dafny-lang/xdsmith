@@ -12,7 +12,7 @@
   (define good-paths (obtain-paths "good"))
   (define bad-paths (obtain-paths "bad"))
 
-  (current-directory "../../workspace")
+  (current-directory "../../work-dir")
 
   (for ([good-path good-paths])
     (with-check-info (['path good-path])
