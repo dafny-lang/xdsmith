@@ -1,3 +1,8 @@
+;; Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+;; SPDX-License-Identifier: MIT
+
+;; This module provides functions to normalize outputs from each backends
+
 #lang racket
 
 (provide normalize-cs

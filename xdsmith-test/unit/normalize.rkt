@@ -1,10 +1,35 @@
+;; Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+;; SPDX-License-Identifier: MIT
+
 #lang racket
 
 (module+ test
   (require rackunit
+           syntax/parse/define
            xdsmith/normalize)
 
-  (check-equal? (normalize-js #<<EOF
+  (define-syntax-parse-rule (check-normalize {~alt {~once {~seq #:js js-expr}}
+                                                   {~once {~seq #:cs cs-expr}}
+                                                   {~once {~seq #:java java-expr}}
+                                                   {~once {~seq #:go go-expr}}} ...)
+    (let ([result #f])
+      (with-check-info (['|lang (actual)| 'js]
+                        ['|lang (expected)| 'cs])
+        (check-equal? (begin
+                        (set! result (normalize-js js-expr))
+                        result)
+                      (normalize-cs cs-expr)))
+
+      (with-check-info (['|lang (actual)| 'js]
+                        ['|lang (expected)| 'java])
+        (check-equal? result (normalize-java java-expr)))
+
+      (with-check-info (['|lang (actual)| 'js]
+                        ['|lang (expected)| 'go])
+        (check-equal? result (normalize-go go-expr)))))
+
+  (check-normalize
+   #:js #<<EOF
 false-1952553523
 ()
 -1915767876multiset{[2046490000]}
@@ -25,29 +50,7 @@ false1
 falsemultiset{((), []), ((), [-2026845849])}
 
 EOF
-                              )
-                #<<EOF
-false-1952553523
-()
--1915767876multiset{[2046490000]}
-[{{()}}]D
-$d>++|^j?%:i*^StvK<AfdNC|&-509650175
--1737838651(B ,  ($~PKs-lk ,  {({false, true} ,  (! ,  true)), ({true} ,  (- ,  true)), ({true} ,  (C ,  true)), ({} ,  (c ,  true))}))
-Function
-((jBatOChV=z=gNPe'tGnOifP^vk ,  -1377431704 ,  [multiset{?}, multiset{N}]) ,  752723663 ,  [])true
-{}>
-ylig'I:W>GnpR%L:
-332839281multiset{%, u, w}
-falsetrue
-720719814
-{(true ,  1236021549)}
-false1
-falsemultiset{(() ,  [-2026845849]), (() ,  [])}
-
-EOF
-                )
-
-  (check-equal? (normalize-go #<<EOF
+   #:go #<<EOF
 false-1952553523
 ()
 -1915767876multiset{[2046490000]}
@@ -66,29 +69,7 @@ false1
 falsemultiset{((), []), ((), [-2026845849])}
 
 EOF
-                             )
-                #<<EOF
-false-1952553523
-()
--1915767876multiset{[2046490000]}
-[{{()}}]D
-$d>++|^j?%:i*^StvK<AfdNC|&-509650175
--1737838651(B ,  ($~PKs-lk ,  {({false, true} ,  (! ,  true)), ({true} ,  (- ,  true)), ({true} ,  (C ,  true)), ({} ,  (c ,  true))}))
-Function
-((jBatOChV=z=gNPe'tGnOifP^vk ,  -1377431704 ,  [multiset{?}, multiset{N}]) ,  752723663 ,  [])true
-{}>
-ylig'I:W>GnpR%L:
-332839281multiset{%, u, w}
-falsetrue
-720719814
-{(true ,  1236021549)}
-false1
-falsemultiset{(() ,  [-2026845849]), (() ,  [])}
-
-EOF
-                )
-
-  (check-equal? (normalize-cs #<<EOF
+   #:cs #<<EOF
 false-1952553523
 ()
 -1915767876multiset{[2046490000]}
@@ -107,30 +88,7 @@ false1
 falsemultiset{((), [-2026845849]), ((), [])}
 
 EOF
-                              )
-                #<<EOF
-false-1952553523
-()
--1915767876multiset{[2046490000]}
-[{{()}}]D
-$d>++|^j?%:i*^StvK<AfdNC|&-509650175
--1737838651(B ,  ($~PKs-lk ,  {({false, true} ,  (! ,  true)), ({true} ,  (- ,  true)), ({true} ,  (C ,  true)), ({} ,  (c ,  true))}))
-Function
-((jBatOChV=z=gNPe'tGnOifP^vk ,  -1377431704 ,  [multiset{?}, multiset{N}]) ,  752723663 ,  [])true
-{}>
-ylig'I:W>GnpR%L:
-332839281multiset{%, u, w}
-falsetrue
-720719814
-{(true ,  1236021549)}
-false1
-falsemultiset{(() ,  [-2026845849]), (() ,  [])}
-
-EOF
-
-)
-
-  (check-equal? (normalize-java #<<EOF
+   #:java #<<EOF
 false-1952553523
 ()
 -1915767876multiset{[2046490000]}
@@ -149,24 +107,4 @@ false1
 falsemultiset{((), [-2026845849]), ((), [])}
 
 EOF
-                                )
-                #<<EOF
-false-1952553523
-()
--1915767876multiset{[2046490000]}
-[{{()}}]D
-$d>++|^j?%:i*^StvK<AfdNC|&-509650175
--1737838651(B ,  ($~PKs-lk ,  {({false, true} ,  (! ,  true)), ({true} ,  (- ,  true)), ({true} ,  (C ,  true)), ({} ,  (c ,  true))}))
-Function
-((jBatOChV=z=gNPe'tGnOifP^vk ,  -1377431704 ,  [multiset{?}, multiset{N}]) ,  752723663 ,  [])true
-{}>
-ylig'I:W>GnpR%L:
-332839281multiset{%, u, w}
-falsetrue
-720719814
-{(true ,  1236021549)}
-false1
-falsemultiset{(() ,  [-2026845849]), (() ,  [])}
-
-EOF
-                ))
+   ))

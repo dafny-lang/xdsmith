@@ -3,3 +3,5 @@ compiled
 .DS_Store
 **/*-go/*
 **/*-java/*
+xdsmith-test/**/*.json
+xdsmith-test/**/*.dll
