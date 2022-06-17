@@ -17,6 +17,8 @@
 
 (define dafny-path (or (getenv "DAFNYPATH") "/workspace/dafny/Binaries/Dafny"))
 
+(printf "Info: DAFNYPATH is ~a\n" dafny-path)
+
 ;; extract-ans :: path-string? string? string? ...
 ;;                #:norm (-> string? string?)
 ;;                #:name (or/c #f string?) = #f
