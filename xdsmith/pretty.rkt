@@ -8,15 +8,18 @@
 
 (define nest-step 2)
 
-(define (tab x) (indent nest-step x))
-
-(define (sa . xs)
-  (string-append* (map (λ (x) (string-append x "\n")) xs)))
-
 (define (comma-list doc-list)
-  (apply h-append
-         (apply-infix (h-append comma space)
-                      doc-list)))
+  (group (nest nest-step (h-append break (h-concat (apply-infix (h-append comma line) doc-list))))))
+
+(define (pair-comma-list doc-list lparen rparen)
+  (group
+   (h-append lparen
+             (nest nest-step
+                   (h-append break
+                             (h-concat (apply-infix (h-append comma line)
+                                                    doc-list))))
+             break
+             rparen)))
 
 (define (bin-op op l r)
   (h-append lparen
@@ -38,63 +41,75 @@
    rparen))
 
 (define (call-with s . es)
-  (h-append (text s) lparen (comma-list es) rparen))
+  (h-append (text s) (pair-comma-list es lparen rparen)))
+
+(define (multi-line s)
+  (v-concat (map text (string-split s "\n"))))
 
 (define (pretty e)
   (match e
     [`(ProgramWithMain ,definitions ,main-body)
      (v-append
-      (text (sa "function method safeDivide (a : int, b : int) : int"
-                "{"
-                "  if b == 0 then 0 else a / b"
-                "}"
-                ""))
-      (text (sa "function method safeSeqRef<T> (s : seq<T>, i : int, default : T) : T"
-                "{ if 0 <= i < |s| then s[i] else default }"
-                ""))
-      (text (sa "function method safeSeqSet<T> (s : seq<T>, i : int, val : T) : seq<T>"
-                "{ if 0 <= i < |s| then s[i := val] else s }"
-                ""))
-      (text (sa "function method safeSeqTake<T> (s : seq<T>, x : int) : seq<T>"
-                "{ if 0 <= x <= |s| then s[..x] else s }"
-                ""))
-      (text (sa "function method safeSeqDrop<T> (s : seq<T>, x : int) : seq<T>"
-                "{ if 0 <= x <= |s| then s[x..] else s }"
-                ""))
-      (text (sa "function method safeSeqSubseq<T> (s : seq<T>, x : int, y : int) : seq<T>"
-                "{ if 0 <= x <= y <= |s| then s[x..y] else s }"
-                ""))
-      (text (sa "function method safeSeqSlice1Colon<T> (s : seq<T>, x : int) : seq<seq<T>>"
-                "{ if 0 <= x <= |s| then s[x:] else [s] }"
-                ""))
-      (text (sa "function method safeSeqSlice2<T> (s : seq<T>, x : int, y: int) : seq<seq<T>>"
-                "{ if 0 <= x && 0 <= y && x + y <= |s| then s[x:y] else [s] }"
-                ""))
-      (text (sa "function method safeSeqSlice3<T> (s : seq<T>, x : int, y : int, z : int) : seq<seq<T>>"
-                "{ if 0 <= x && 0 <= y && 0 <= z && x + y + z <= |s| then s[x:y:z] else [s] }"
-                ""))
-      (text (sa "function method safeSeqSlice3Colon<T> (s : seq<T>, x : int, y : int, z : int) : seq<seq<T>>"
-                "{ if 0 <= x && 0 <= y && 0 <= z && x + y + z <= |s| then s[x:y:z:] else [s] }"
-                ""))
-      (text (sa "function method lengthNormalize (x : int) : nat"
-                "{ (if x < 0 then -x else x) % 50 }"
-                ""))
+      (multi-line #<<EOF
+function method safeDivide (a : int, b : int) : int {
+  if b == 0 then 0 else a / b
+}
 
-      (vb-concat (map (λ (n) (v-append (pretty n) (text ""))) definitions))
-      (h-append (text "method") space (text "Main") space lparen rparen space)
-      (pretty main-body)
-      (text ""))]
+function method safeSeqRef<T> (s : seq<T>, i : int, default : T) : T {
+  if 0 <= i < |s| then s[i] else default
+}
+
+function method safeSeqSet<T> (s : seq<T>, i : int, val : T) : seq<T> {
+  if 0 <= i < |s| then s[i := val] else s
+}
+
+function method safeSeqTake<T> (s : seq<T>, x : int) : seq<T> {
+  if 0 <= x <= |s| then s[..x] else s
+}
+
+function method safeSeqDrop<T> (s : seq<T>, x : int) : seq<T> {
+  if 0 <= x <= |s| then s[x..] else s
+}
+
+function method safeSeqSubseq<T> (s : seq<T>, x : int, y : int) : seq<T> {
+  if 0 <= x <= y <= |s| then s[x..y] else s
+}
+
+function method safeSeqSlice1Colon<T> (s : seq<T>, x : int) : seq<seq<T>> {
+  if 0 <= x <= |s| then s[x:] else [s]
+}
+
+function method safeSeqSlice2<T> (s : seq<T>, x : int, y: int) : seq<seq<T>> {
+  if 0 <= x && 0 <= y && x + y <= |s| then s[x:y] else [s]
+}
+
+function method safeSeqSlice3<T> (s : seq<T>, x : int, y : int, z : int) : seq<seq<T>> {
+  if 0 <= x && 0 <= y && 0 <= z && x + y + z <= |s| then s[x:y:z] else [s]
+}
+
+function method safeSeqSlice3Colon<T> (s : seq<T>, x : int, y : int, z : int) : seq<seq<T>> {
+  if 0 <= x && 0 <= y && 0 <= z && x + y + z <= |s| then s[x:y:z:] else [s]
+}
+
+function method lengthNormalize (x : int) : nat {
+  (if x < 0 then -x else x) % 50
+}
+
+EOF
+       )
+      (v-concat (map (λ (n) (v-append (pretty n) empty)) definitions))
+      (h-append (text "method Main () ")
+                (pretty main-body))
+      empty)]
 
     [`(TopLevelMethodDefinition ,name ,meth)
-     (h-append (text "method")
-               space
+     (h-append (text "method ")
                (text name)
                space
                (pretty meth))]
 
     [`(TopLevelFunMethodDefinition ,name ,meth)
-     (h-append (text "function method")
-               space
+     (h-append (text "function method ")
                (text name)
                space
                (pretty meth))]
@@ -102,63 +117,63 @@
     [`(TopLevelMethod ,params ,rets ,requires ,ensures ,init-rets ,body)
      (v-append
       (h-append
-       lparen
-       (comma-list (map pretty params))
-       rparen)
-      (tab (h-append (text "returns") space lparen (comma-list (map pretty rets)) rparen))
-      (tab (h-append (text "requires") space lparen (pretty requires) rparen))
-      (tab (h-append (text "ensures") space lparen (pretty ensures) rparen))
-      lbrace
-      (tab (v-concat (for/list ([ret rets] [init-ret init-rets])
-                       (match-define `(FormalParameter ,name ,_) ret)
-                       (pretty `(AssignmentStatement ,name ,init-ret)))))
-      (tab (pretty body))
+       (pair-comma-list (map pretty params) lparen rparen)
+       (nest
+        nest-step
+        (v-append
+         empty
+         (h-append (text "returns ") (pair-comma-list (map pretty rets) lparen rparen))
+         (h-append (text "requires ") lparen (pretty requires) rparen)
+         (h-append (text "ensures ") lparen (pretty ensures) rparen))))
+      (h-append
+       lbrace
+       (nest
+        nest-step
+        (v-append
+         empty
+         (v-concat (for/list ([ret rets] [init-ret init-rets])
+                     (match-define `(FormalParameter ,name ,_) ret)
+                     (pretty `(AssignmentStatement ,name ,init-ret))))
+         (pretty body))))
       rbrace)]
 
     [`(TopLevelFunMethod ,params ,ret-type ,defs ,body)
      (v-append
       (h-append
-       lparen
-       (comma-list (map pretty params))
-       rparen
-       space
-       (text ":")
-       space
+       (pair-comma-list (map pretty params) lparen rparen)
+       (text " : ")
        (text ret-type))
 
-      lbrace
-      (tab (v-append (v-concat (map pretty defs)) (pretty body)))
+      (h-append lbrace
+                (nest nest-step
+                      (v-append empty
+                                (v-concat (map pretty defs))
+                                (pretty body))))
       rbrace)]
 
     [`(MethodBlock ,x ,e ,body)
      (v-append
-      (h-append (text "var")
-                space
+      (h-append (text "var ")
                 (text x)
-                space
-                (text ":=")
-                space
+                (text " := ")
                 (pretty e)
                 semi)
       (pretty body))]
 
     [`(MethodBlockTwo ,x ,y ,e ,body)
      (v-append
-      (h-append (text "var")
-                space
+      (h-append (text "var ")
                 (text x)
                 comma
                 space
                 (text y)
-                space
-                (text ":=")
-                space
+                (text " := ")
                 (pretty e)
                 semi)
       (pretty body))]
 
     [`(ProcedureApplicationForMethod ,f ,args)
-     (h-append (pretty f) lparen (comma-list (map pretty args)) rparen)]
+     (h-append (pretty f) (pair-comma-list (map pretty args) lparen rparen))]
 
     [`(PrintStmt ,xs)
      (h-append (text "print ") (comma-list (map pretty xs)) (text ";"))]
@@ -176,7 +191,7 @@
      (pretty-chain s op)]
 
     [`(Definition ,x ,e)
-     (h-append (text "var") space (text x) space (text ":=") space (pretty e) semi)]
+     (h-append (text "var ") (text x) (text " := ") (pretty e) semi)]
 
     [`(Block ,definitions ,statements)
      (h-append
@@ -191,33 +206,29 @@
       line
       rbrace)]
 
-    [`(AssignmentStatement ,x ,e) (h-append (text x) space (text ":=") space (pretty e) semi)]
+    [`(AssignmentStatement ,x ,e) (h-append (text x) (text " := ") (pretty e) semi)]
 
     [`(IfElseStatement ,c ,t ,e)
      (h-append
-      (h-append (text "if") space lparen (pretty c) rparen space)
+      (h-append (text "if ") lparen (pretty c) rparen space)
       (pretty t)
-      (h-append space (text "else") space)
+      (text " else ")
       (pretty e))]
 
     [`(VariableReference ,x) (text x)]
 
-    [`(ProcedureApplication ,f ,args) (h-append (pretty f) lparen (comma-list (map pretty args)) rparen)]
+    [`(ProcedureApplication ,f ,args)
+     (h-append (pretty f) (pair-comma-list (map pretty args) lparen rparen))]
 
     [`(FormalParameter ,x ,t)
      (h-append (text x)
-               space
-               (text ":")
-               space
+               (text " : ")
                (text t))]
 
     [`(LambdaWithExpression ,params ,body)
-     (h-append lparen lparen
-               (comma-list (map pretty params))
-               rparen
-               space
-               (text "=>")
-               space
+     (h-append lparen
+               (pair-comma-list (map pretty params) lparen rparen)
+               (text " => ")
                (pretty body)
                rparen)]
 
@@ -236,21 +247,22 @@
     [`(GreaterThan ,l ,r) (bin-op ">" l r)]
 
     [`(SafeDivide ,l ,r)
-     (h-append (text "safeDivide") lparen
+     (h-append (text "safeDivide")
+               lparen
                (pretty l)
-               (text ",") space
+               (text ", ")
                (pretty r)
                rparen)]
 
     [`(EmptyImmutableSetLiteral ,t)
      (text (format "(var tmpData : ~a := {}; tmpData)" t))]
     [`(ImmutableSetLiteral ,xs)
-     (h-append lbrace (comma-list (map pretty xs)) rbrace)]
+     (pair-comma-list (map pretty xs) lbrace rbrace)]
 
     [`(EmptyImmutableMultisetLiteral ,t)
      (text (format "(var tmpData : ~a := multiset{}; tmpData)" t))]
     [`(ImmutableMultisetLiteral ,xs)
-     (h-append (text "multiset") lbrace (comma-list (map pretty xs)) rbrace)]
+     (h-append (text "multiset") (pair-comma-list (map pretty xs) lbrace rbrace))]
 
     [`(SetMember ,l ,r) (bin-op "in" l r)]
     [`(SetNotMember ,l ,r) (bin-op "!in" l r)]
@@ -265,10 +277,7 @@
                lbracket
                (pretty r)
                rbracket
-               space
-               (text "as")
-               space
-               (text "int")
+               (text " as int")
                rparen)]
     [`(MultisetSet ,collection ,idx ,val)
      ;; NOTE: call lengthNormalize since we can't set it to negative number
@@ -277,14 +286,12 @@
                (pretty collection)
                lbracket
                (pretty idx)
-               space
-               (text ":=")
-               space
+               (text " := ")
                (call-with "lengthNormalize" (pretty val))
                rbracket
                rparen)]
 
-    [`(Assert ,e) (h-append (text "assert") space (pretty e) semi)]
+    [`(Assert ,e) (h-append (text "assert ") (pretty e) semi)]
     [`(Equal ,l ,r) (bin-op "==" l r)]
 
     ;; Sequence
@@ -308,7 +315,7 @@
     [`(EmptyImmutableArrayLiteral ,t)
      (text (format "(var tmpData : ~a := []; tmpData)" t))]
     [`(ImmutableArrayLiteral ,xs)
-     (h-append lbracket (comma-list (map pretty xs)) rbracket)]
+     (pair-comma-list (map pretty xs) lbracket rbracket)]
     [`(ImmutableArraySafeReference ,arr ,idx ,fallback)
      (call-with "safeSeqRef"
                 (pretty arr)
@@ -325,10 +332,11 @@
      (text (format "(var tmpData : ~a := map[]; tmpData)" t))]
     [`(ImmutableMapLiteral ,keys ,vals)
      (h-append (text "map")
-               lbracket
-               (comma-list (for/list ([key keys] [val vals])
-                             (h-append (pretty key) space (text ":=") space (pretty val))))
-               rbracket)]
+               (pair-comma-list
+                (for/list ([key keys] [val vals])
+                  (h-append (pretty key) (text " := ") (pretty val)))
+                lbracket
+                rbracket))]
     [`(MapLength ,s) (h-append (text "|") (pretty s) (text "|"))]
     [`(MapMember ,l ,r) (bin-op "in" l r)]
     [`(MapNotMember ,l ,r) (bin-op "!in" l r)]
@@ -338,28 +346,21 @@
     ;; Tuple
 
     [`(,(or 'TupleZeroLiteral 'TupleTwoLiteral 'TupleThreeLiteral) ,@xs)
-     (h-append lparen (comma-list (map pretty xs)) rparen)]
-
+     (pair-comma-list (map pretty xs) lparen rparen)]
     [`(TupleProjFirst ,x)
      (h-append (pretty x) (text ".0"))]
-
     [`(TupleProjSecond ,x)
      (h-append (pretty x) (text ".1"))]
-
     [`(TupleProjThird ,x)
      (h-append (pretty x) (text ".2"))]
 
     ;; String
-
     [`(StringLiteral ,s) (text (format "~v" s))]
 
     ;; Char
-
     [`(CharLiteral ,s) (text (match s
                                [#\' "'\\''"]
                                [_ (format "'~a'" s)]))]
-
-
     [`(CharToInt ,e) (h-append lparen (pretty e) (text " as int") rparen)]))
 
 (define (main-print datum)
