@@ -23,11 +23,6 @@ RUN apt update && apt install -y \
 RUN add-apt-repository -y ppa:plt/racket \
  && apt install -y racket
 
-# Xsmith
-RUN git clone https://gitlab.flux.utah.edu/xsmith/xsmith.git \
- && cd xsmith/xsmith \
- && raco pkg install -D --auto
-
 # Java
 RUN wget -O- https://apt.corretto.aws/corretto.key | apt-key add -
 
@@ -44,6 +39,14 @@ RUN wget https://dot.net/v1/dotnet-install.sh \
 
 # Rosette
 RUN raco pkg install -D --auto rosette
+
+# Patched pprint
+RUN raco pkg install -D --auto https://github.com/sorawee/pprint.git
+
+# Xsmith
+RUN git clone https://gitlab.flux.utah.edu/xsmith/xsmith.git \
+ && cd xsmith/xsmith \
+ && raco pkg install -D --auto
 
 RUN mkdir work-dir \
   && cd work-dir \
