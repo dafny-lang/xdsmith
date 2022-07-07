@@ -8,7 +8,7 @@ XDsmith is a tool aiming to uncover bugs in the Dafny verifier and the Dafny com
 
 ### Docker
 
-We recommend that you use Docker to run XDsmith. If you choose to do this, you will need to install Docker, either via the installer from the website or from your OS’s software manager. After that, run `docker build -t test .` from the the project directory. Then, you should be able to run `docker run --entrypoint bash -it test` to start the XDsmith environment.
+We recommend that you use Docker to run XDsmith. If you choose to do this, you will need to install Docker, either via the installer from the website or from a software manager. After that, run `docker build -t test .` from the the project directory. Then, you should be able to run `docker run --entrypoint bash -it test` to start the XDsmith environment.
 
 ### Manual Installtion
 
@@ -52,7 +52,7 @@ Useful command-line options include:
 - `--seed <seed>`: using a particular seed for program generation. This is useful for reproducing an existing bug.
 - `--timeout <timeout>`: set a timeout for program generation. This is useful for debugging the program generator when it loops infinitely.
 - `--s-exp-on-error true`: print a partial AST when an error occurs during program generation.
-- `with-print-constrained true`: constrain printing for the verification fuzzing mode.
+- `--with-print-constrained true`: constrain printing for the verification fuzzing mode.
 - `--num <num>`: continuously generate <num> programs. This parameter is weird in a sense that it must be specified as the last flag. It is only useful for debugging to make sure that the program generator really works (and not happens to be successful due to a lucky random seed).
 
 Other command-line options can be seen by invoking `racket fuzzer.rkt --help`.
