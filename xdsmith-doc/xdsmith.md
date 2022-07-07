@@ -8,7 +8,7 @@ XDsmith is a tool aiming to uncover bugs in the Dafny verifier and the Dafny com
 
 ### Docker
 
-We recommend that you use Docker to run XDsmith. If you choose to do this, you will need to install Docker, either via the installer from the website or from a software manager. After that, run `docker build -t test .` from the the project directory. Then, you should be able to run `docker run --entrypoint bash -it test` to start the XDsmith environment.
+We recommend that you use Docker to run XDsmith. You can install Docker, either via the installer from the website or from a software manager. After that, run `docker build -t test .` from the project directory. Then, you should be able to run `docker run --entrypoint bash -it test` to start the XDsmith environment.
 
 ### Manual Installtion
 
