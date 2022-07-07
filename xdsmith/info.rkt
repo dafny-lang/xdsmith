@@ -7,7 +7,7 @@
                "clotho"
                "https://gitlab.flux.utah.edu/xsmith/xsmith.git?path=xsmith"
                "racr"
-               "https://github.com/sorawee/pprint.git"
+               "pprint"
                "rosette"))
 (define pkg-desc "Testing Dafny")
 (define version "0.0")

@@ -40,9 +40,6 @@ RUN wget https://dot.net/v1/dotnet-install.sh \
 # Rosette
 RUN raco pkg install -D --auto rosette
 
-# Patched pprint
-RUN raco pkg install -D --auto https://github.com/sorawee/pprint.git
-
 # Xsmith
 RUN git clone https://gitlab.flux.utah.edu/xsmith/xsmith.git \
  && cd xsmith/xsmith \
